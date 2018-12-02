@@ -1,7 +1,5 @@
 #![feature(test)]
 
-extern crate bytecount;
-
 fn main() {
     let input = include_str!("../input.txt");
     let input = input.lines().collect::<Vec<&str>>();
@@ -80,7 +78,7 @@ extern crate test;
 mod tests {
     use test::{Bencher, black_box};
 
-    use crate::{part_1, part_2, cryze_part1};
+    use crate::{part_1, part_2};
 
     #[bench]
     fn part_1_bench(b: &mut Bencher) {
