@@ -1,0 +1,9 @@
+[package]
+name = "ugly_array_decl"
+version = "0.1.0"
+authors = ["auro"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
