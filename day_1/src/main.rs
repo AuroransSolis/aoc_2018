@@ -1,7 +1,5 @@
 #![feature(test)]
 
-use std::collections::HashSet;
-
 fn main() {
     let input = include_str!("../input.txt");
     let input_vals = input.lines().map(|line| line.parse::<i64>().unwrap()).collect::<Vec<i64>>();
