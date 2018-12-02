@@ -1,5 +1,7 @@
 #![feature(test, proc_macro_hygiene)]
 
+use std::slice;
+
 const R: usize = 250;
 
 fn main() {
@@ -44,16 +46,59 @@ pub fn part_1(input: &Vec<&str>) {
 extern crate packed_simd;
 extern crate ugly_array_decl;
 
-use packed_simd::u8x32;
+use std::hint::unreachable_unchecked;
 
-use ugly_array_decl::ugly_array_decl;
+pub use packed_simd::{u8x32, m8x32, m8};
 
-const BYTES: &[u8] = include_bytes!("../input.txt");
+pub use ugly_array_decl::ugly_array_decl;
+
+const BYTES: [u8; 6750] = *include_bytes!("../input.txt");
 
 pub fn part_2() {
-    let inputs = unsafe { ugly_array_decl!() };
     let zeros = u8x32::splat(0);
     let ones = u8x32::splat(1);
+    let mut inputs: [u8x32; R] = unsafe { std::mem::uninitialized() };
+    let mask: m8x32 = [
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(true),
+        m8::new(false),
+        m8::new(false),
+        m8::new(false),
+        m8::new(false),
+        m8::new(false),
+        m8::new(false),
+    ].into();
+    for i in 0..R {
+        unsafe {
+            (&mut inputs[i] as *mut u8x32).write(mask.select(u8x32::from_slice_unaligned_unchecked(
+                slice::from_raw_parts(&BYTES[i * 27] as *const u8, 26)
+            ), zeros))
+        }
+    }
     for i in 0..R - 1 {
         for j in i + 1..R {
             if inputs[i].eq(inputs[j]).select(zeros, ones).wrapping_sum() == 1 {
@@ -66,6 +111,7 @@ pub fn part_2() {
             }
         }
     }
+    unsafe { unreachable_unchecked() };
 }
 
 extern crate test;
@@ -74,7 +120,7 @@ extern crate test;
 mod tests {
     use test::{Bencher, black_box};
 
-    use crate::{part_1, part_2};
+    use crate::{part_1, part_2, BYTES, ugly_array_decl, u8x32};
 
     #[bench]
     fn part_1_bench(b: &mut Bencher) {
@@ -85,8 +131,6 @@ mod tests {
 
     #[bench]
     fn part_2_bench(b: &mut Bencher) {
-        let input = include_str!("../input.txt");
-        let input = input.lines().collect::<Vec<&str>>();
         b.iter(|| black_box(part_2()));
     }
 }
