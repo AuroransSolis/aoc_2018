@@ -1,12 +1,10 @@
 #![feature(test, proc_macro_hygiene)]
 
-use std::slice;
-
 fn main() {
     let input = include_str!("../input.txt");
     let input = input.lines().collect::<Vec<&str>>();
     part_1(&input);
-    part_2();
+    //part_2();
 }
 
 #[no_mangle]
@@ -44,44 +42,95 @@ pub fn part_1(input: &Vec<&str>) {
 }
 
 extern crate packed_simd;
+extern crate ugly_array_decl;
 
 use std::hint::unreachable_unchecked;
 
-pub use packed_simd::{u8x32, m8x32, m8};
+use packed_simd::u8x32;
+
+use ugly_array_decl::ugly_array_decl;
 
 const BYTES: [u8; 6750] = *include_bytes!("../input.txt");
-const CHARS_PER_LINE: usize = 27;
+//const CHARS_PER_LINE: usize = 27;
 const LINES: usize = 250;
-const MASK: m8x32 = m8x32::new(true, true, true, true, true, true, true, true, true, true, true,
+/*const MASK: m8x32 = m8x32::new(true, true, true, true, true, true, true, true, true, true, true,
     true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false,
-    false, false, false, false, false);
+    false, false, false, false, false);*/
 const ZEROS: u8x32 = u8x32::splat(0);
 const ONES: u8x32 = u8x32::new(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 0, 0, 0, 0, 0, 0);
+const INPUTS: [u8x32; LINES] = ugly_array_decl!();
 
 #[no_mangle]
 #[inline(never)]
-pub fn part_2() {
-    let mut inputs: [u8x32; LINES] = unsafe { std::mem::uninitialized() };
-    for i in 0..LINES {
-        unsafe {
-            inputs[i] = MASK.select(u8x32::from_slice_unaligned_unchecked(
-                slice::from_raw_parts(&BYTES[i * CHARS_PER_LINE] as *const u8, 26)
-            ), ZEROS);
-        }
-    }
-    for i in 0..LINES - 1 {
-        for j in i + 1..LINES {
-            if inputs[i].eq(inputs[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
-                let n1: [u8; 32] = inputs[i].into();
-                let n2: [u8; 32] = inputs[j].into();
+pub fn part_2_rr() -> usize {
+    for i in (0..LINES - 1).rev() {
+        for j in (i + 1..LINES).rev() {
+            if INPUTS[i].eq(INPUTS[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
+                let n1: [u8; 32] = INPUTS[i].into();
+                let n2: [u8; 32] = INPUTS[j].into();
                 for n in 0..26 {
-                    if n1[n] == n2[n] {
-                        print!("{}", n1[n] as char);
+                    if n1[n] != n2[n] {
+                        return n;
                     }
                 }
-                println!();
-                return;
+            }
+        }
+    }
+    unsafe { unreachable_unchecked() };
+}
+
+#[no_mangle]
+#[inline(never)]
+pub fn part_2_rf() -> usize {
+    for i in (0..LINES - 1).rev() {
+        for j in i + 1..LINES {
+            if INPUTS[i].eq(INPUTS[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
+                let n1: [u8; 32] = INPUTS[i].into();
+                let n2: [u8; 32] = INPUTS[j].into();
+                for n in 0..26 {
+                    if n1[n] != n2[n] {
+                        return n;
+                    }
+                }
+            }
+        }
+    }
+    unsafe { unreachable_unchecked() };
+}
+
+#[no_mangle]
+#[inline(never)]
+pub fn part_2_fr() -> usize {
+    for i in 0..LINES - 1 {
+        for j in (i + 1..LINES).rev() {
+            if INPUTS[i].eq(INPUTS[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
+                let n1: [u8; 32] = INPUTS[i].into();
+                let n2: [u8; 32] = INPUTS[j].into();
+                for n in 0..26 {
+                    if n1[n] != n2[n] {
+                        return n;
+                    }
+                }
+            }
+        }
+    }
+    unsafe { unreachable_unchecked() };
+}
+
+#[no_mangle]
+#[inline(never)]
+pub fn part_2_ff() -> usize {
+    for i in 0..LINES - 1 {
+        for j in i + 1..LINES {
+            if INPUTS[i].eq(INPUTS[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
+                let n1: [u8; 32] = INPUTS[i].into();
+                let n2: [u8; 32] = INPUTS[j].into();
+                for n in 0..26 {
+                    if n1[n] != n2[n] {
+                        return n;
+                    }
+                }
             }
         }
     }
@@ -93,6 +142,21 @@ extern crate test;
 use test::{Bencher, black_box};
 
 #[bench]
-fn auro(b: &mut Bencher) {
-    b.iter(|| part_2());
+fn ff(b: &mut Bencher) {
+    b.iter(|| black_box(part_2_ff()));
+}
+
+#[bench]
+fn fr(b: &mut Bencher) {
+    b.iter(|| black_box(part_2_fr()));
+}
+
+#[bench]
+fn rf(b: &mut Bencher) {
+    b.iter(|| black_box(part_2_rf()));
+}
+
+#[bench]
+fn rr(b: &mut Bencher) {
+    b.iter(|| black_box(part_2_rr()));
 }
