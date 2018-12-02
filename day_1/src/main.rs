@@ -4,7 +4,6 @@ use std::collections::HashSet;
 
 fn main() {
     let input = include_str!("../input.txt");
-    let input = input.to_string();
     let input_vals = input.lines().map(|line| line.parse::<i64>().unwrap()).collect::<Vec<i64>>();
     part_1(&input_vals);
     part_2(&input_vals);
@@ -62,7 +61,6 @@ mod tests {
     #[bench]
     fn part_1_bench(b: &mut Bencher) {
         let input = include_str!("../input.txt");
-        let input = input.to_string();
         let input_vals = input.lines().map(|line| line.parse::<i64>().unwrap())
             .collect::<Vec<i64>>();
         b.iter(|| black_box(part_1(&input_vals)));
@@ -71,9 +69,8 @@ mod tests {
     #[bench]
     fn part_2_bench(b: &mut Bencher) {
         let input = include_str!("../input.txt");
-        let input = input.to_string();
         let input_vals = input.lines().map(|line| line.parse::<i64>().unwrap())
             .collect::<Vec<i64>>();
-        b.iter(|| black_box(part_2(&input_vals)));
+        b.iter(|| part_2(&input_vals));
     }
 }
