@@ -6,4 +6,10 @@ authors = ["auro"]
 
 [dependencies]
 packed_simd = "0.3.1"
-ugly_array_decl = { path = "ugly_array_decl" }
+
+[profile.release]
+panic = "abort"
+lto = true
+
+[profile.bench]
+lto = true

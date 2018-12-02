@@ -2,8 +2,6 @@
 
 use std::slice;
 
-const R: usize = 250;
-
 fn main() {
     let input = include_str!("../input.txt");
     let input = input.lines().collect::<Vec<&str>>();
@@ -11,6 +9,8 @@ fn main() {
     part_2();
 }
 
+#[no_mangle]
+#[inline(never)]
 pub fn part_1(input: &Vec<&str>) {
     let mut triples = 0;
     let mut doubles = 0;
@@ -44,68 +44,42 @@ pub fn part_1(input: &Vec<&str>) {
 }
 
 extern crate packed_simd;
-extern crate ugly_array_decl;
 
 use std::hint::unreachable_unchecked;
 
 pub use packed_simd::{u8x32, m8x32, m8};
 
-pub use ugly_array_decl::ugly_array_decl;
-
 const BYTES: [u8; 6750] = *include_bytes!("../input.txt");
+const CHARS_PER_LINE: usize = 27;
+const LINES: usize = 250;
+const MASK: m8x32 = m8x32::new(true, true, true, true, true, true, true, true, true, true, true,
+    true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false,
+    false, false, false, false, false);
+const ZEROS: u8x32 = u8x32::splat(0);
+const ONES: u8x32 = u8x32::new(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 0, 0, 0, 0, 0, 0);
 
+#[no_mangle]
+#[inline(never)]
 pub fn part_2() {
-    let zeros = u8x32::splat(0);
-    let ones = u8x32::splat(1);
-    let mut inputs: [u8x32; R] = unsafe { std::mem::uninitialized() };
-    let mask: m8x32 = [
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(true),
-        m8::new(false),
-        m8::new(false),
-        m8::new(false),
-        m8::new(false),
-        m8::new(false),
-        m8::new(false),
-    ].into();
-    for i in 0..R {
+    let mut inputs: [u8x32; LINES] = unsafe { std::mem::uninitialized() };
+    for i in 0..LINES {
         unsafe {
-            (&mut inputs[i] as *mut u8x32).write(mask.select(u8x32::from_slice_unaligned_unchecked(
-                slice::from_raw_parts(&BYTES[i * 27] as *const u8, 26)
-            ), zeros))
+            inputs[i] = MASK.select(u8x32::from_slice_unaligned_unchecked(
+                slice::from_raw_parts(&BYTES[i * CHARS_PER_LINE] as *const u8, 26)
+            ), ZEROS);
         }
     }
-    for i in 0..R - 1 {
-        for j in i + 1..R {
-            if inputs[i].eq(inputs[j]).select(zeros, ones).wrapping_sum() == 1 {
-                <[u8; 32]>::from(inputs[i]).iter()
-                    .take(26).zip(<[u8; 32]>::from(inputs[i]).iter().take(26))
-                    .filter(|&(c1, c2)| c1 == c2).map(|(c1, _)| print!("{}", *c1 as char))
-                    .collect::<()>();
+    for i in 0..LINES - 1 {
+        for j in i + 1..LINES {
+            if inputs[i].eq(inputs[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
+                let n1: [u8; 32] = inputs[i].into();
+                let n2: [u8; 32] = inputs[j].into();
+                for n in 0..26 {
+                    if n1[n] == n2[n] {
+                        print!("{}", n1[n] as char);
+                    }
+                }
                 println!();
                 return;
             }
@@ -116,21 +90,9 @@ pub fn part_2() {
 
 extern crate test;
 
-#[cfg(test)]
-mod tests {
-    use test::{Bencher, black_box};
+use test::{Bencher, black_box};
 
-    use crate::{part_1, part_2, BYTES, ugly_array_decl, u8x32};
-
-    #[bench]
-    fn part_1_bench(b: &mut Bencher) {
-        let input = include_str!("../input.txt");
-        let input = input.lines().collect::<Vec<&str>>();
-        b.iter(|| black_box(part_1(&input)));
-    }
-
-    #[bench]
-    fn part_2_bench(b: &mut Bencher) {
-        b.iter(|| black_box(part_2()));
-    }
+#[bench]
+fn auro(b: &mut Bencher) {
+    b.iter(|| part_2());
 }
