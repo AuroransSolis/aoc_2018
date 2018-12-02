@@ -68,20 +68,6 @@ pub fn part_2() {
     }
 }
 
-fn print_same(a: &str, b: &str) {
-    let a_bytes = a.as_bytes();
-    let b_bytes = b.as_bytes();
-    for i in 0..a.len().min(b.len()) {
-        if a_bytes[i] == 0 {
-            continue;
-        }
-        if a_bytes[i] == b_bytes[i] {
-            print!("{}", a_bytes[i] as char);
-        }
-    }
-    println!();
-}
-
 extern crate test;
 
 #[cfg(test)]
