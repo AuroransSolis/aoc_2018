@@ -3,7 +3,7 @@ fn main() {
     part_1(&input);
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Action {
     WakesUp,
     FallsAsleep,
@@ -82,31 +82,29 @@ fn part_1(input: &Vec<&str>) {
     let mut id_tracker = HashSet::new();
     let mut log_iter = log.into_iter();
     let mut log_item = log_iter.next().unwrap();
-    sleep_amts.insert(first.guard.unwrap(), 0);
-    'outer: while let Some(item) = log_iter.next() {
+    'outer: while let Some(mut item) = log_iter.next() {
         let mut minutes = [0u8; 60];
-        let mut holder = log_iter.next().unwrap();
         'inner: while let Some(next) = log_iter.next() {
             match next {
                 n @ LogItem{action: Action::BeginsShift, ..} => {
-                    log_item = n;
-                    if id_tracker.insert(item.guard.unwrap()) {
-                        sleep_amts.insert(item.guard.unwrap(), minutes);
+                    if id_tracker.insert(log_item.guard.unwrap()) {
+                        sleep_amts.insert(log_item.guard.unwrap(), minutes);
                     } else {
-                        let tmp = sleep_amts.get_mut(&item.guard.unwrap()).unwrap();
+                        let tmp = sleep_amts.get_mut(&log_item.guard.unwrap()).unwrap();
                         for i in 0..60 {
-                            tmp[i] = minutes[i];
+                            tmp[i] += minutes[i];
                         }
                     }
+                    log_item = n;
                     continue 'outer;
                 },
                 n @ LogItem{action: Action::WakesUp, ..} => {
-                    for i in holder.time.1..n.time.1 {
+                    for i in item.time.1..n.time.1 {
                         minutes[i] += 1;
                     }
                 }
-                n @ LogItem{..} => {
-                    holder = n;
+                n @ _ => {
+                    item = n;
                     continue 'inner;
                 }
             }
@@ -115,12 +113,11 @@ fn part_1(input: &Vec<&str>) {
     let mut max = 0;
     let mut winner_id = 0;
     for (id, t) in sleep_amts.iter() {
-        println!("Guard {}: {}", id, t);
         let tmp = t.iter().max().unwrap();
-        if tmp > max {
-            max = tmp;
-            winner_id = id;
+        if *tmp > max {
+            max = *tmp;
+            winner_id = *id;
         }
     }
-    println!("{} * {} => {}", max, winner_id, max * winner_id);
+    println!("{} * {} => {}", max, winner_id, max as usize * winner_id);
 }
