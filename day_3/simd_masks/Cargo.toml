@@ -1,0 +1,9 @@
+[package]
+name = "simd_masks"
+version = "0.1.0"
+authors = ["auro"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
