@@ -1,0 +1,12 @@
+[package]
+name = "galaxy_brain"
+version = "0.1.0"
+authors = ["auro"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+ugly_array_decl = { path = "../ugly_array_decl" }
+packed_simd = "0.3.1"
