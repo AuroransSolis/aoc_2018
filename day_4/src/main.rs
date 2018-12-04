@@ -110,14 +110,16 @@ fn part_1(input: &Vec<&str>) {
             }
         }
     }
-    let mut max = 0;
+    let mut max_total = 0;
+    let mut minute = 0;
     let mut winner_id = 0;
     for (id, t) in sleep_amts.iter() {
-        let tmp = t.iter().max().unwrap();
-        if *tmp > max {
-            max = *tmp;
+        let tmp_total = t.iter().sum();
+        if tmp_total > max_total {
+            max_total = tmp_total;
             winner_id = *id;
+            minute = t.iter().enumerate().max_by(|(tma, _), (tmb, _)| tma.cmp(tmb)).unwrap().0;
         }
     }
-    println!("{} * {} => {}", max, winner_id, max as usize * winner_id);
+    println!("{} * {} => {}", minute, winner_id, minute * winner_id);
 }
