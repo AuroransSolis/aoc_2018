@@ -6,20 +6,23 @@ use galaxy_brain::construct_galaxy_brain;
 construct_galaxy_brain!();
 
 fn main() {
-    let input = include_str!("../ameo-input.txt");
+    let input = include_str!("../fixed-big-input.txt");
     let input = input.lines().collect::<Vec<&str>>();
     part_1(&input);
+    part_2_ff();
+    part_2_fr();
+    part_2_rf();
     part_2_rr();
-    original_zesterer(include_bytes!("../ameo-input.txt"));
-    println!("Completed original Zesterer function.");
+    //original_zesterer(include_bytes!("../ameo-input.txt"));
+    //println!("Completed original Zesterer function.");
     //improved_zesterer();
-    println!("Completed modified Zesterer function.");
+    //println!("Completed modified Zesterer function.");
 }
 
 #[no_mangle]
 #[inline(never)]
 pub fn part_1(input: &Vec<&str>) {
-    let mut triples = 0;
+    let mut triples = 0usize;
     let mut doubles = 0;
     'names: for name in input {
         let slice = name.as_bytes();
@@ -57,7 +60,7 @@ use std::hint::unreachable_unchecked;
 use packed_simd::u8x32;
 use ugly_array_decl::big_ugly_array_decl;
 
-const BYTES: [u8; 2700000] = *include_bytes!("../big-input.txt");
+const BYTES: [u8; 2700000] = *include_bytes!("../fixed-big-input.txt");
 const LINES: usize = 100_000;
 const ZEROS: u8x32 = u8x32::splat(0);
 const ONES: u8x32 = u8x32::new(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -66,19 +69,17 @@ const INPUTS: [u8x32; LINES] = big_ugly_array_decl!();
 
 #[no_mangle]
 #[inline(never)]
-pub fn part_2_rr() {
+pub fn part_2_rr() -> usize {
     for i in (0..LINES - 1).rev() {
         for j in (i + 1..LINES).rev() {
             if INPUTS[i].eq(INPUTS[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
                 let n1: [u8; 32] = INPUTS[i].into();
                 let n2: [u8; 32] = INPUTS[j].into();
                 for n in 0..26 {
-                    if n1[n] == n2[n] {
-                        print!("{}", n1[n] as char)
+                    if n1[n] != n2[n] {
+                        return n;
                     }
                 }
-                println!();
-                return;
             }
         }
     }
@@ -91,15 +92,13 @@ pub fn part_2_rf() -> usize {
     for i in (0..LINES - 1).rev() {
         for j in i + 1..LINES {
             if INPUTS[i].eq(INPUTS[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
-                /*let n1: [u8; 32] = INPUTS[i].into();
+                let n1: [u8; 32] = INPUTS[i].into();
                 let n2: [u8; 32] = INPUTS[j].into();
                 for n in 0..26 {
-                    if n1[n] == n2[n] {
-                        print!("{}", n1[n] as char)
+                    if n1[n] != n2[n] {
+                        return n;
                     }
                 }
-                println!();*/
-                return i;
             }
         }
     }
@@ -112,15 +111,13 @@ pub fn part_2_fr() -> usize {
     for i in 0..LINES - 1 {
         for j in (i + 1..LINES).rev() {
             if INPUTS[i].eq(INPUTS[j]).select(ONES, ZEROS).wrapping_sum() == 25 {
-                /*let n1: [u8; 32] = INPUTS[i].into();
+                let n1: [u8; 32] = INPUTS[i].into();
                 let n2: [u8; 32] = INPUTS[j].into();
                 for n in 0..26 {
-                    if n1[n] == n2[n] {
-                        print!("{}", n1[n] as char)
+                    if n1[n] != n2[n] {
+                        return n;
                     }
                 }
-                println!();*/
-                return i;
             }
         }
     }
@@ -136,12 +133,10 @@ pub fn part_2_ff() -> usize {
                 let n1: [u8; 32] = INPUTS[i].into();
                 let n2: [u8; 32] = INPUTS[j].into();
                 for n in 0..26 {
-                    if n1[n] == n2[n] {
-                        print!("{}", n1[n] as char)
+                    if n1[n] != n2[n] {
+                        return n;
                     }
                 }
-                println!();
-                return i;
             }
         }
     }

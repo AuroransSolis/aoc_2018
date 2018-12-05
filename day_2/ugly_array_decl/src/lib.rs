@@ -2,6 +2,8 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 
+use std::fmt::Write;
+
 #[proc_macro]
 pub fn ugly_array_decl(_item: TokenStream) -> TokenStream {
     let mut out = "[u8x32::new(".to_string();
@@ -31,26 +33,26 @@ pub fn ugly_array_decl(_item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn big_ugly_array_decl(_item: TokenStream) -> TokenStream {
     let mut out = "[u8x32::new(".to_string();
-    out = format!("{}BYTES[0]", out);
+    out += "BYTES[0]";
     for i in 1..26 {
-        out = format!("{}, BYTES[{}]", out, i);
+        write!(out, ", BYTES[{}]", i).unwrap();
     }
     for _ in 26..32 {
-        out = format!("{}, 0", out);
+        out += ", 0";
     }
-    out = format!("{})", out);
+    out += ")";
     for i in 1..100_000 {
-        out = format!("{}, u8x32::new(", out);
-        out = format!("{}BYTES[{}]", out, i * 27);
+        out += ", u8x32::new(";
+        write!(out, "BYTES[{}]", i * 27).unwrap();
         for j in 1..26 {
-            out = format!("{}, BYTES[{}]", out, i * 27 + j);
+            write!(out, ", BYTES[{}]", i * 27 + j).unwrap();
         }
         for _ in 26..32 {
-            out = format!("{}, 0", out);
+            out += ", 0";
         }
-        out = format!("{})", out);
+        out += ")";
     }
-    out = format!("{}]", out);
+    out += "]";
     out.parse().unwrap()
 }
 
