@@ -1,3 +1,5 @@
+#![feature(test)]
+
 extern crate packed_simd;
 
 use packed_simd::{m8x64, u8x64};
@@ -55,9 +57,11 @@ fn part_1<S: AsRef<str>, T: IntoIterator<Item = S>>(input: T) -> usize {
     let mut a_r3 = Vec::new();
     let mut ra = Vec::new();
     let mut rb = Vec::new();
+    let mut rc = Vec::new();
     while let Some(line) = input.next() {
         // Should only push to ra and rb if it's not a 'Before' or 'After' line
         let mut rarb = false;
+        let mut push_rc = false;
         {
             let (which_v0, which_v1, which_v2, which_v3, useful) = match line.as_ref()
                 .as_bytes()[0] {
@@ -66,6 +70,7 @@ fn part_1<S: AsRef<str>, T: IntoIterator<Item = S>>(input: T) -> usize {
                         line.as_ref().trim_start_matches("Before: [").trim_end_matches(']'))
                 },
                 b'A' => {
+                    push_rc = true;
                     (&mut a_r0, &mut a_r1, &mut a_r2, &mut a_r3,
                         line.as_ref().trim_start_matches("After:  [").trim_end_matches(']'))
                 },
@@ -96,37 +101,47 @@ fn part_1<S: AsRef<str>, T: IntoIterator<Item = S>>(input: T) -> usize {
                 _ => 255
             });
         }
+        if push_rc {
+            rc.push(match o_v3[o_v3.len() - 1] {
+                0 => a_r0[a_r0.len() - 1],
+                1 => a_r1[a_r1.len() - 1],
+                2 => a_r2[a_r2.len() - 1],
+                3 => a_r3[a_r3.len() - 1],
+                _ => 255
+            });
+        }
     }
     let mut total = 0;
     for i in (0..b_r0.len()).step_by(64) {
         // Y'all mind if I  S I M D ?
-        let (op_v1_simd, op_v2_simd, af_r3_simd, op_ra_simd, op_rb_simd) = if i + 64 > b_r0.len() {
+        let (op_v1_simd, op_v2_simd, op_ra_simd, op_rb_simd, op_rc_simd) = if i + 64
+            > b_r0.len() {
             let mut op_v1_slice = [255; 64];
             let mut op_v2_slice = [254; 64];
-            let mut af_r3_slice = [253; 64];
             let mut op_ra_slice = [252; 64];
             let mut op_rb_slice = [251; 64];
+            let mut op_rc_slice = [250; 64];
             for j in i..b_r0.len() {
-                op_v1_slice[j - i] = o_v1[i];
-                op_v2_slice[j - i] = o_v2[i];
-                af_r3_slice[j - i] = a_r3[i];
-                op_ra_slice[j - i] = ra[i];
-                op_rb_slice[j - i] = rb[i];
+                op_v1_slice[j - i] = o_v1[j];
+                op_v2_slice[j - i] = o_v2[j];
+                op_ra_slice[j - i] = ra[j];
+                op_rb_slice[j - i] = rb[j];
+                op_rc_slice[j - i] = rc[j];
             }
             unsafe {(
                 u8x64::from_slice_unaligned_unchecked(&op_v1_slice),
                 u8x64::from_slice_unaligned_unchecked(&op_v2_slice),
-                u8x64::from_slice_unaligned_unchecked(&af_r3_slice),
                 u8x64::from_slice_unaligned_unchecked(&op_ra_slice),
-                u8x64::from_slice_unaligned_unchecked(&op_rb_slice)
+                u8x64::from_slice_unaligned_unchecked(&op_rb_slice),
+                u8x64::from_slice_unaligned_unchecked(&op_rc_slice)
             )}
         } else {
             unsafe {(
                 u8x64::from_slice_unaligned_unchecked(&o_v1[i..i + 64]),
                 u8x64::from_slice_unaligned_unchecked(&o_v2[i..i + 64]),
-                u8x64::from_slice_unaligned_unchecked(&a_r3[i..i + 64]),
                 u8x64::from_slice_unaligned_unchecked(&ra[i..i + 64]),
-                u8x64::from_slice_unaligned_unchecked(&rb[i..i + 64])
+                u8x64::from_slice_unaligned_unchecked(&rb[i..i + 64]),
+                u8x64::from_slice_unaligned_unchecked(&rc[i..i + 64])
             )}
         };
         // All of the functions matching operation names do the operation and check if it's valid.
@@ -134,22 +149,22 @@ fn part_1<S: AsRef<str>, T: IntoIterator<Item = S>>(input: T) -> usize {
         // of ones and zeros. I then call '.gt(TWOS)' to get a m8x64 of which ones had a count
         // greater than two, then finally call `.select()` and `.wrapping_sum()` on that to get how
         // many of the 64 inputs had more than three possible operations.
-        total += (addr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + addi(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + mulr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + muli(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + banr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + bani(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + borr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + bori(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + setr(op_ra_simd, ZEROS, af_r3_simd).select(ONES, ZEROS)
-            + seti(op_v1_simd, ZEROS, af_r3_simd).select(ONES, ZEROS)
-            + gtir(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + gtri(op_ra_simd, op_v2_simd, af_r3_simd).select(ONES, ZEROS)
-            + gtrr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + eqir(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
-            + eqri(op_ra_simd, op_v2_simd, af_r3_simd).select(ONES, ZEROS)
-            + eqrr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS))
+        total += (addr(op_ra_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS)
+            + addi(op_ra_simd, op_v2_simd, op_rc_simd).select(ONES, ZEROS)
+            + mulr(op_ra_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS)
+            + muli(op_ra_simd, op_v2_simd, op_rc_simd).select(ONES, ZEROS)
+            + banr(op_ra_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS)
+            + bani(op_ra_simd, op_v2_simd, op_rc_simd).select(ONES, ZEROS)
+            + borr(op_ra_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS)
+            + bori(op_ra_simd, op_v2_simd, op_rc_simd).select(ONES, ZEROS)
+            + setr(op_ra_simd, ZEROS, op_rc_simd).select(ONES, ZEROS)
+            + seti(op_v1_simd, ZEROS, op_rc_simd).select(ONES, ZEROS)
+            + gtir(op_v1_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS)
+            + gtri(op_ra_simd, op_v2_simd, op_rc_simd).select(ONES, ZEROS)
+            + gtrr(op_ra_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS)
+            + eqir(op_v1_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS)
+            + eqri(op_ra_simd, op_v2_simd, op_rc_simd).select(ONES, ZEROS)
+            + eqrr(op_ra_simd, op_rb_simd, op_rc_simd).select(ONES, ZEROS))
             .gt(TWOS).select(ONES, ZEROS).wrapping_sum() as usize;
     }
     total
@@ -228,4 +243,31 @@ fn eqri(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
 
 fn eqrr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.eq(b).select(ONES, ZEROS).eq(c)
+}
+
+extern crate test;
+
+use test::{Bencher, black_box};
+
+#[bench]
+fn p1(b: &mut Bencher) {
+    let input = include_str!("../input.txt");
+    let mut part_1_lines = Vec::new();
+    for line in input.lines() {
+        if line.len() == 0 {
+            continue;
+        }
+        if line.as_bytes()[0] == b'B' {
+            part_1_lines.push(line);
+        } else if line.as_bytes()[0] == b'A' {
+            part_1_lines.push(line);
+        } else {
+            if part_1_lines[part_1_lines.len() - 1].as_bytes()[0] != b'B' {
+                break;
+            } else {
+                part_1_lines.push(line);
+            }
+        }
+    }
+    b.iter(|| black_box(part_1(&part_1_lines)));
 }
