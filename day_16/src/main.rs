@@ -34,86 +34,122 @@ fn main() {
 
 fn part_1<S: AsRef<str>, T: IntoIterator<Item = S>>(input: T) -> usize {
     let mut input = input.into_iter();
-    let mut opcodes = Vec::new();
-    let mut v1 = Vec::new();
-    let mut v2 = Vec::new();
-    let mut v3 = Vec::new();
+    // b_rn vectors hold the nth value in 'Before' lines
+    // o_vn vectors hold the nth value in operation lines
+    // a_rn vectors hold the nth value in 'After' lines
+    // ra holds the values that operation lines point to using the first value as a reference to a
+    //     register
+    // rb holds the values that operation lines point to using the second value as a reference to a
+    //     register
+    let mut b_r0 = Vec::new();
+    let mut o_v0 = Vec::new();
+    let mut a_r0 = Vec::new();
+    let mut b_r1 = Vec::new();
+    let mut o_v1 = Vec::new();
+    let mut a_r1 = Vec::new();
+    let mut b_r2 = Vec::new();
+    let mut o_v2 = Vec::new();
+    let mut a_r2 = Vec::new();
+    let mut b_r3 = Vec::new();
+    let mut o_v3 = Vec::new();
+    let mut a_r3 = Vec::new();
     let mut ra = Vec::new();
     let mut rb = Vec::new();
     while let Some(line) = input.next() {
-        let mut print = false;
-        let useful = match line.as_ref().as_bytes()[0] {
-            b'B' => line.as_ref().trim_start_matches("Before: [").trim_end_matches(']'),
-            b'A' => line.as_ref().trim_start_matches("After:  [").trim_end_matches(']'),
-            _ => line.as_ref()
-        };
-        let mut words_iter = useful.split_whitespace();
-        opcodes.push(words_iter.next().unwrap().trim_end_matches(',').parse::<u8>().unwrap());
-        v1.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
-        v2.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
-        v3.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
-        ra.push(match v1[v1.len() - 1] {
-            0 => opcodes[opcodes.len() - 1],
-            1 => v1[v1.len() - 1],
-            2 => v2[v2.len() - 1],
-            3 => v3[v3.len() - 1],
-            _ => 255
-        });
-        rb.push(match v2[v2.len() - 1] {
-            0 => opcodes[opcodes.len() - 1],
-            1 => v1[v1.len() - 1],
-            2 => v2[v2.len() - 1],
-            3 => v3[v3.len() - 1],
-            _ => 255
-        });
+        // Should only push to ra and rb if it's not a 'Before' or 'After' line
+        let mut rarb = false;
+        {
+            let (which_v0, which_v1, which_v2, which_v3, useful) = match line.as_ref()
+                .as_bytes()[0] {
+                b'B' => {
+                    (&mut b_r0, &mut b_r1, &mut b_r2, &mut b_r3,
+                        line.as_ref().trim_start_matches("Before: [").trim_end_matches(']'))
+                },
+                b'A' => {
+                    (&mut a_r0, &mut a_r1, &mut a_r2, &mut a_r3,
+                        line.as_ref().trim_start_matches("After:  [").trim_end_matches(']'))
+                },
+                _ => {
+                    rarb = true;
+                    (&mut o_v0, &mut o_v1, &mut o_v2, &mut o_v3, line.as_ref())
+                }
+            };
+            let mut words_iter = useful.split_whitespace();
+            which_v0.push(words_iter.next().unwrap().trim_end_matches(',').parse::<u8>().unwrap());
+            which_v1.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
+            which_v2.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
+            which_v3.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
+        }
+        if rarb {
+            ra.push(match o_v1[o_v1.len() - 1] {
+                0 => b_r0[b_r0.len() - 1],
+                1 => b_r1[b_r1.len() - 1],
+                2 => b_r2[b_r2.len() - 1],
+                3 => b_r3[b_r3.len() - 1],
+                _ => 255
+            });
+            rb.push(match o_v2[o_v2.len() - 1] {
+                0 => b_r0[b_r0.len() - 1],
+                1 => b_r1[b_r1.len() - 1],
+                2 => b_r2[b_r2.len() - 1],
+                3 => b_r3[b_r3.len() - 1],
+                _ => 255
+            });
+        }
     }
     let mut total = 0;
-    for i in (0..v1.len()).step_by(64) {
-        let (v1_simd, v2_simd, v3_simd, ra_simd, rb_simd) = if i + 64 > v1.len() {
-            let mut v1_slice = [255; 64];
-            let mut v2_slice = [255; 64];
-            let mut v3_slice = [255; 64];
-            let mut ra_slice = [255; 64];
-            let mut rb_slice = [255; 64];
-            for j in i..opcodes.len() {
-                v1_slice[j - i] = v1[i];
-                v2_slice[j - i] = v2[i];
-                v3_slice[j - i] = v3[i];
-                ra_slice[j - i] = ra[i];
-                rb_slice[j - i] = rb[i];
+    for i in (0..b_r0.len()).step_by(64) {
+        // Y'all mind if I  S I M D ?
+        let (op_v1_simd, op_v2_simd, af_r3_simd, op_ra_simd, op_rb_simd) = if i + 64 > b_r0.len() {
+            let mut op_v1_slice = [255; 64];
+            let mut op_v2_slice = [254; 64];
+            let mut af_r3_slice = [253; 64];
+            let mut op_ra_slice = [252; 64];
+            let mut op_rb_slice = [251; 64];
+            for j in i..b_r0.len() {
+                op_v1_slice[j - i] = o_v1[i];
+                op_v2_slice[j - i] = o_v2[i];
+                af_r3_slice[j - i] = a_r3[i];
+                op_ra_slice[j - i] = ra[i];
+                op_rb_slice[j - i] = rb[i];
             }
             unsafe {(
-                u8x64::from_slice_unaligned_unchecked(&v1_slice),
-                u8x64::from_slice_unaligned_unchecked(&v2_slice),
-                u8x64::from_slice_unaligned_unchecked(&v3_slice),
-                u8x64::from_slice_unaligned_unchecked(&ra_slice),
-                u8x64::from_slice_unaligned_unchecked(&rb_slice)
+                u8x64::from_slice_unaligned_unchecked(&op_v1_slice),
+                u8x64::from_slice_unaligned_unchecked(&op_v2_slice),
+                u8x64::from_slice_unaligned_unchecked(&af_r3_slice),
+                u8x64::from_slice_unaligned_unchecked(&op_ra_slice),
+                u8x64::from_slice_unaligned_unchecked(&op_rb_slice)
             )}
         } else {
             unsafe {(
-                u8x64::from_slice_unaligned_unchecked(&v1[i..i + 64]),
-                u8x64::from_slice_unaligned_unchecked(&v2[i..i + 64]),
-                u8x64::from_slice_unaligned_unchecked(&v3[i..i + 64]),
+                u8x64::from_slice_unaligned_unchecked(&o_v1[i..i + 64]),
+                u8x64::from_slice_unaligned_unchecked(&o_v2[i..i + 64]),
+                u8x64::from_slice_unaligned_unchecked(&a_r3[i..i + 64]),
                 u8x64::from_slice_unaligned_unchecked(&ra[i..i + 64]),
                 u8x64::from_slice_unaligned_unchecked(&rb[i..i + 64])
             )}
         };
-        total += (addr(ra_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + addi(v1_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + mulr(ra_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + muli(v1_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + banr(ra_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + bani(v1_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + borr(ra_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + bori(v1_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + setr(ra_simd, ZEROS, v3_simd).select(ONES, ZEROS)
-            + seti(v1_simd, ZEROS, v3_simd).select(ONES, ZEROS)
-            + gtir(v1_simd, rb_simd, v3_simd).select(ONES, ZEROS)
-            + gtri(ra_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + gtrr(ra_simd, rb_simd, v3_simd).select(ONES, ZEROS)
-            + eqir(v1_simd, rb_simd, v3_simd).select(ONES, ZEROS)
-            + eqri(ra_simd, v2_simd, v3_simd).select(ONES, ZEROS)
-            + eqrr(ra_simd, rb_simd, v3_simd).select(ONES, ZEROS))
+        // All of the functions matching operation names do the operation and check if it's valid.
+        // This results in m8x64 SIMD vecs, which I call `.select()` on to get to be u8x64 SIMD vecs
+        // of ones and zeros. I then call '.gt(TWOS)' to get a m8x64 of which ones had a count
+        // greater than two, then finally call `.select()` and `.wrapping_sum()` on that to get how
+        // many of the 64 inputs had more than three possible operations.
+        total += (addr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + addi(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + mulr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + muli(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + banr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + bani(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + borr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + bori(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + setr(op_ra_simd, ZEROS, af_r3_simd).select(ONES, ZEROS)
+            + seti(op_v1_simd, ZEROS, af_r3_simd).select(ONES, ZEROS)
+            + gtir(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + gtri(op_ra_simd, op_v2_simd, af_r3_simd).select(ONES, ZEROS)
+            + gtrr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + eqir(op_v1_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS)
+            + eqri(op_ra_simd, op_v2_simd, af_r3_simd).select(ONES, ZEROS)
+            + eqrr(op_ra_simd, op_rb_simd, af_r3_simd).select(ONES, ZEROS))
             .gt(TWOS).select(ONES, ZEROS).wrapping_sum() as usize;
     }
     total
@@ -166,6 +202,9 @@ fn setr(a: u8x64, _b: u8x64, c: u8x64) -> m8x64 {
 fn seti(a: u8x64, _b: u8x64, c: u8x64) -> m8x64 {
     a.eq(c)
 }
+
+// Yes, I'm aware that the gtxx and eqxx functions are duplicates. They're just there for the sake
+// of completeness.
 
 fn gtir(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.gt(b).select(ONES, ZEROS).eq(c)
