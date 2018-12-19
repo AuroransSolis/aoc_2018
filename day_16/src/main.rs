@@ -88,8 +88,7 @@ fn part_1(input: &str) -> usize {
     let mut total = 0;
     for i in (0..o_v1.len()).step_by(64) {
         // Y'all mind if I  S I M D ?
-        let (op_v1_simd, op_v2_simd, op_ra_simd, op_rb_simd, op_rc_simd) = if i + 64
-            > o_v1.len() {
+        let (op_v1_simd, op_v2_simd, op_ra_simd, op_rb_simd, op_rc_simd) = if i + 64 > o_v1.len() {
             let mut op_v1_slice = [255; 64];
             let mut op_v2_slice = [254; 64];
             let mut op_ra_slice = [252; 64];
