@@ -6,122 +6,96 @@ use packed_simd::{m8x64, u8x64};
 
 fn main() {
     let input = include_str!("../input.txt");
-    let mut part_1_lines = Vec::new();
-    let mut part_2_lines = Vec::new();
-    let mut on_part_1 = true;
-    for line in input.lines() {
-        if line.len() == 0 {
-            continue;
-        }
-        if on_part_1 {
-            if line.as_bytes()[0] == b'B' {
-                part_1_lines.push(line);
-            } else if line.as_bytes()[0] == b'A' {
-                part_1_lines.push(line);
-            } else {
-                if part_1_lines[part_1_lines.len() - 1].as_bytes()[0] != b'B' {
-                    part_2_lines.push(line);
-                    on_part_1 = false;
-                } else {
-                    part_1_lines.push(line);
-                }
-            }
-        } else {
-            part_2_lines.push(line);
-        }
-    }
-    println!("p1: {}", part_1(part_1_lines.iter()));
+    println!("p1: {}", part_1(input));
     //println!("p2: {}", part_2(part_2_lines.iter()));
 }
 
-fn part_1<S: AsRef<str>, T: IntoIterator<Item = S>>(input: T) -> usize {
-    let mut input = input.into_iter();
-    // b_rn vectors hold the nth value in 'Before' lines
-    // o_vn vectors hold the nth value in operation lines
-    // a_rn vectors hold the nth value in 'After' lines
-    // ra holds the values that operation lines point to using the first value as a reference to a
-    //     register
-    // rb holds the values that operation lines point to using the second value as a reference to a
-    //     register
-    let mut b_r0 = Vec::new();
-    let mut o_v0 = Vec::new();
-    let mut a_r0 = Vec::new();
-    let mut b_r1 = Vec::new();
-    let mut o_v1 = Vec::new();
-    let mut a_r1 = Vec::new();
-    let mut b_r2 = Vec::new();
-    let mut o_v2 = Vec::new();
-    let mut a_r2 = Vec::new();
-    let mut b_r3 = Vec::new();
-    let mut o_v3 = Vec::new();
-    let mut a_r3 = Vec::new();
-    let mut ra = Vec::new();
-    let mut rb = Vec::new();
-    let mut rc = Vec::new();
-    while let Some(line) = input.next() {
-        // Should only push to ra and rb if it's not a 'Before' or 'After' line
-        let mut rarb = false;
-        let mut push_rc = false;
-        {
-            let (which_v0, which_v1, which_v2, which_v3, useful) = match line.as_ref()
-                .as_bytes()[0] {
-                b'B' => {
-                    (&mut b_r0, &mut b_r1, &mut b_r2, &mut b_r3,
-                        line.as_ref().trim_start_matches("Before: [").trim_end_matches(']'))
-                },
-                b'A' => {
-                    push_rc = true;
-                    (&mut a_r0, &mut a_r1, &mut a_r2, &mut a_r3,
-                        line.as_ref().trim_start_matches("After:  [").trim_end_matches(']'))
-                },
-                _ => {
-                    rarb = true;
-                    (&mut o_v0, &mut o_v1, &mut o_v2, &mut o_v3, line.as_ref())
-                }
+const SHORT_OP_CHUNK_SIZE: usize = 51;
+const LONG_OP_CHUNK_SIZE: usize = 52;
+const SHORT_OP_OV1_OFFSET: usize = 23;
+const LONG_OP_OV1_OFFSET: usize = 24;
+const SHORT_OP_OV2_OFFSET: usize = 25;
+const LONG_OP_OV2_OFFSET: usize = 26;
+const SHORT_OP_OV3_OFFSET: usize = 27;
+const LONG_OP_OV3_OFFSET: usize = 28;
+const B_REG0_OFFSET: usize = 9;
+const B_REG1_OFFSET: usize = 12;
+const B_REG2_OFFSET: usize = 15;
+const B_REG3_OFFSET: usize = 18;
+const B_REGOFFSETS: [usize; 4] = [B_REG0_OFFSET, B_REG1_OFFSET, B_REG2_OFFSET, B_REG3_OFFSET];
+const SHORT_OP_A_REG0_OFFSET: usize = 38;
+const SHORT_OP_A_REG1_OFFSET: usize = 41;
+const SHORT_OP_A_REG2_OFFSET: usize = 44;
+const SHORT_OP_A_REG3_OFFSET: usize = 47;
+const SHORT_OP_A_REGOFFSETS: [usize; 4] = [SHORT_OP_A_REG0_OFFSET, SHORT_OP_A_REG1_OFFSET,
+    SHORT_OP_A_REG2_OFFSET, SHORT_OP_A_REG3_OFFSET];
+const LONG_OP_A_REG0_OFFSET: usize = 39;
+const LONG_OP_A_REG1_OFFSET: usize = 42;
+const LONG_OP_A_REG2_OFFSET: usize = 45;
+const LONG_OP_A_REG3_OFFSET: usize = 48;
+const LONG_OP_A_REGOFFSETS: [usize; 4] = [LONG_OP_A_REG0_OFFSET, LONG_OP_A_REG1_OFFSET,
+    LONG_OP_A_REG2_OFFSET, LONG_OP_A_REG3_OFFSET];
+
+fn part_1(input: &str) -> usize {
+    let mut o_v1 = [0; 751];
+    let mut o_v2 = [0; 751];
+    let mut ra = [0; 751];
+    let mut rb = [0; 751];
+    let mut rc = [0; 751];
+    let mut bytes_ind = 0;
+    let input_bytes = input.as_bytes();
+    for info_ind in 0..751 {
+        let mut long_op = false;
+        o_v1[info_ind] = if input_bytes[bytes_ind + SHORT_OP_OV1_OFFSET] == b' ' {
+            long_op = true;
+            input_bytes[bytes_ind + LONG_OP_OV1_OFFSET]
+        } else {
+            input_bytes[bytes_ind + SHORT_OP_OV1_OFFSET]
+        } - b'0';
+        if long_op {
+            o_v2[info_ind] = input_bytes[bytes_ind + LONG_OP_OV2_OFFSET] - b'0';
+            let o_v3 = (input_bytes[bytes_ind + LONG_OP_OV3_OFFSET] - b'0') as usize;
+            rc[info_ind] = if o_v3 < 4 {
+                input_bytes[bytes_ind + LONG_OP_A_REGOFFSETS[o_v3]] - b'0'
+            } else {
+                253
             };
-            let mut words_iter = useful.split_whitespace();
-            which_v0.push(words_iter.next().unwrap().trim_end_matches(',').parse::<u8>().unwrap());
-            which_v1.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
-            which_v2.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
-            which_v3.push(words_iter.next().unwrap().as_bytes()[0] - b'0');
+        } else {
+            o_v2[info_ind] = input_bytes[bytes_ind + SHORT_OP_OV2_OFFSET] - b'0';
+            let o_v3 = (input_bytes[bytes_ind + SHORT_OP_OV3_OFFSET] - b'0') as usize;
+            rc[info_ind] = if o_v3 < 4 {
+                input_bytes[bytes_ind + SHORT_OP_A_REGOFFSETS[o_v3]] - b'0'
+            } else {
+                253
+            };
         }
-        if rarb {
-            ra.push(match o_v1[o_v1.len() - 1] {
-                0 => b_r0[b_r0.len() - 1],
-                1 => b_r1[b_r1.len() - 1],
-                2 => b_r2[b_r2.len() - 1],
-                3 => b_r3[b_r3.len() - 1],
-                _ => 255
-            });
-            rb.push(match o_v2[o_v2.len() - 1] {
-                0 => b_r0[b_r0.len() - 1],
-                1 => b_r1[b_r1.len() - 1],
-                2 => b_r2[b_r2.len() - 1],
-                3 => b_r3[b_r3.len() - 1],
-                _ => 255
-            });
-        }
-        if push_rc {
-            rc.push(match o_v3[o_v3.len() - 1] {
-                0 => a_r0[a_r0.len() - 1],
-                1 => a_r1[a_r1.len() - 1],
-                2 => a_r2[a_r2.len() - 1],
-                3 => a_r3[a_r3.len() - 1],
-                _ => 255
-            });
+        ra[info_ind] = if o_v1[info_ind] < 4 {
+            input_bytes[bytes_ind + B_REGOFFSETS[o_v1[info_ind] as usize]] - b'0'
+        } else {
+            255
+        };
+        rb[info_ind] = if o_v2[info_ind] < 4 {
+            input_bytes[bytes_ind + B_REGOFFSETS[o_v2[info_ind] as usize]] - b'0'
+        } else {
+            255
+        };
+        if long_op {
+            bytes_ind += LONG_OP_CHUNK_SIZE;
+        } else {
+            bytes_ind += SHORT_OP_CHUNK_SIZE;
         }
     }
     let mut total = 0;
-    for i in (0..b_r0.len()).step_by(64) {
+    for i in (0..o_v1.len()).step_by(64) {
         // Y'all mind if I  S I M D ?
         let (op_v1_simd, op_v2_simd, op_ra_simd, op_rb_simd, op_rc_simd) = if i + 64
-            > b_r0.len() {
+            > o_v1.len() {
             let mut op_v1_slice = [255; 64];
             let mut op_v2_slice = [254; 64];
             let mut op_ra_slice = [252; 64];
             let mut op_rb_slice = [251; 64];
             let mut op_rc_slice = [250; 64];
-            for j in i..b_r0.len() {
+            for j in i..o_v1.len() {
                 op_v1_slice[j - i] = o_v1[j];
                 op_v2_slice[j - i] = o_v2[j];
                 op_ra_slice[j - i] = ra[j];
@@ -178,6 +152,8 @@ const TWOS: u8x64 = u8x64::splat(2);
 const ONES: u8x64 = u8x64::splat(1);
 const ZEROS: u8x64 = u8x64::splat(0);
 
+// Yes, I'm aware some of the following functions are duplicates. They're there for completeness.
+
 fn addr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a + b).eq(c)
 }
@@ -218,9 +194,6 @@ fn seti(a: u8x64, _b: u8x64, c: u8x64) -> m8x64 {
     a.eq(c)
 }
 
-// Yes, I'm aware that the gtxx and eqxx functions are duplicates. They're just there for the sake
-// of completeness.
-
 fn gtir(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.gt(b).select(ONES, ZEROS).eq(c)
 }
@@ -252,22 +225,5 @@ use test::{Bencher, black_box};
 #[bench]
 fn p1(b: &mut Bencher) {
     let input = include_str!("../input.txt");
-    let mut part_1_lines = Vec::new();
-    for line in input.lines() {
-        if line.len() == 0 {
-            continue;
-        }
-        if line.as_bytes()[0] == b'B' {
-            part_1_lines.push(line);
-        } else if line.as_bytes()[0] == b'A' {
-            part_1_lines.push(line);
-        } else {
-            if part_1_lines[part_1_lines.len() - 1].as_bytes()[0] != b'B' {
-                break;
-            } else {
-                part_1_lines.push(line);
-            }
-        }
-    }
-    b.iter(|| black_box(part_1(&part_1_lines)));
+    b.iter(|| black_box(part_1(input)));
 }
