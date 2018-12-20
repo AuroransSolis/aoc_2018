@@ -9,7 +9,7 @@ use std::mem::uninitialized;
 fn main() {
     let input = include_str!("../input.txt");
     println!("p1: {}", part_1(input));
-    println!("p2: {:?}", part_2(input));
+    println!("p2: {}", part_2(input));
 }
 
 const INPUTS: usize = 751;
@@ -56,31 +56,31 @@ fn part_1(input: &str) -> usize {
             input_bytes[bytes_ind + LONG_OP_OV1_OFFSET]
         } else {
             input_bytes[bytes_ind + SHORT_OP_OV1_OFFSET]
-        } - b'0';
+        } & 15;
         if long_op {
-            o_v2[info_ind] = input_bytes[bytes_ind + LONG_OP_OV2_OFFSET] - b'0';
-            let o_v3 = (input_bytes[bytes_ind + LONG_OP_OV3_OFFSET] - b'0') as usize;
-            rc[info_ind] = if o_v3 < 4 {
-                input_bytes[bytes_ind + LONG_OP_A_REGOFFSETS[o_v3]] - b'0'
+            o_v2[info_ind] = input_bytes[bytes_ind + LONG_OP_OV2_OFFSET] & 15;
+            let o_v3 = (input_bytes[bytes_ind + LONG_OP_OV3_OFFSET] & 15) as usize;
+           rc[info_ind] = if o_v3 < 4 {
+                input_bytes[bytes_ind + LONG_OP_A_REGOFFSETS[o_v3]] & 15
             } else {
                 253
             };
         } else {
-            o_v2[info_ind] = input_bytes[bytes_ind + SHORT_OP_OV2_OFFSET] - b'0';
-            let o_v3 = (input_bytes[bytes_ind + SHORT_OP_OV3_OFFSET] - b'0') as usize;
-            rc[info_ind] = if o_v3 < 4 {
-                input_bytes[bytes_ind + SHORT_OP_A_REGOFFSETS[o_v3]] - b'0'
+            o_v2[info_ind] = input_bytes[bytes_ind + SHORT_OP_OV2_OFFSET] & 15;
+            let o_v3 = (input_bytes[bytes_ind + SHORT_OP_OV3_OFFSET] & 15) as usize;
+           rc[info_ind] = if o_v3 < 4 {
+                input_bytes[bytes_ind + SHORT_OP_A_REGOFFSETS[o_v3]] & 15
             } else {
                 253
             };
         }
-        ra[info_ind] = if o_v1[info_ind] < 4 {
-            input_bytes[bytes_ind + B_REGOFFSETS[o_v1[info_ind] as usize]] - b'0'
+       ra[info_ind] = if o_v1[info_ind] < 4 {
+            input_bytes[bytes_ind + B_REGOFFSETS[o_v1[info_ind] as usize]] & 15
         } else {
             255
         };
-        rb[info_ind] = if o_v2[info_ind] < 4 {
-            input_bytes[bytes_ind + B_REGOFFSETS[o_v2[info_ind] as usize]] - b'0'
+       rb[info_ind] = if o_v2[info_ind] < 4 {
+            input_bytes[bytes_ind + B_REGOFFSETS[o_v2[info_ind] as usize]] & 15
         } else {
             255
         };
@@ -155,37 +155,23 @@ macro_rules! simd_possibilities_to_array {
     )*}
 }
 
-macro_rules! mark_zero {
-    ({$($op:ident, $number:expr),*}, $mz:ident, $possibilities:ident) => {$(
-        if $op.is_some() && !$mz[$number] {
-            for i in 0..INPUTS {
-                $possibilities[i][$number] = 0;
-            }
-            $mz[$number] = true;
-        }
-    )*}
-}
-
 const PROGRAM_LINES: usize = 857;
 
-fn part_2(input: &str) {
-    let mut addr_op = None;
-    let mut addi_op = None;
-    let mut mulr_op = None;
-    let mut muli_op = None;
-    let mut banr_op = None;
-    let mut bani_op = None;
-    let mut borr_op = None;
-    let mut bori_op = None;
-    let mut setr_op = None;
-    let mut seti_op = None;
-    let mut gtir_op = None;
-    let mut gtri_op = None;
-    let mut gtrr_op = None;
-    let mut eqir_op = None;
-    let mut eqri_op = None;
-    let mut eqrr_op = None;
-    let mut possibilities: [[u8; 16]; INPUTS] = unsafe { std::mem::uninitialized() };
+const SHORT_V0_V1_OFFSET: usize = 2;
+const LONG_V0_V1_OFFSET: usize = 3;
+const SHORT_V0_V2_OFFSET: usize = 4;
+const LONG_V0_V2_OFFSET: usize = 5;
+const SHORT_V0_V3_OFFSET: usize = 6;
+const LONG_V0_V3_OFFSET: usize = 7;
+const SHORT_LINE_LENGTH: usize = 8;
+const LONG_LINE_LENGTH: usize = 9;
+
+const FUNCTIONS: [fn(&mut [u16; 4], u8, u8, u8); 16] = [addr, addi, mulr, muli, banr, bani, borr,
+    bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr];
+
+fn part_2(input: &str) -> u16 {
+    let mut ops = [None; 16];
+    let mut possibilities: [[u8; 16]; INPUTS] = [[1; 16]; INPUTS];
     let mut o_v0 = [0; INPUTS];
     let mut o_v1 = [0; INPUTS];
     let mut o_v2 = [0; INPUTS];
@@ -198,36 +184,36 @@ fn part_2(input: &str) {
         let mut long_op = false;
         o_v0[info_ind] = if input_bytes[bytes_ind + OP_OV0_OFFSET + 1] != b' ' {
             long_op = true;
-            10 + input_bytes[bytes_ind + OP_OV0_OFFSET + 1] - b'0'
+            10 + input_bytes[bytes_ind + OP_OV0_OFFSET + 1] & 15
         } else {
-            input_bytes[bytes_ind + OP_OV0_OFFSET] - b'0'
+            input_bytes[bytes_ind + OP_OV0_OFFSET] & 15
         };
         if long_op {
-            o_v1[info_ind] = input_bytes[bytes_ind + LONG_OP_OV1_OFFSET] - b'0';
-            o_v2[info_ind] = input_bytes[bytes_ind + LONG_OP_OV2_OFFSET] - b'0';
-            let o_v3 = (input_bytes[bytes_ind + LONG_OP_OV3_OFFSET] - b'0') as usize;
+            o_v1[info_ind] = input_bytes[bytes_ind + LONG_OP_OV1_OFFSET] & 15;
+            o_v2[info_ind] = input_bytes[bytes_ind + LONG_OP_OV2_OFFSET] & 15;
+            let o_v3 = (input_bytes[bytes_ind + LONG_OP_OV3_OFFSET] & 15) as usize;
             rc[info_ind] = if o_v3 < 4 {
-                input_bytes[bytes_ind + LONG_OP_A_REGOFFSETS[o_v3]] - b'0'
+                input_bytes[bytes_ind + LONG_OP_A_REGOFFSETS[o_v3]] & 15
             } else {
                 253
             };
         } else {
-            o_v1[info_ind] = input_bytes[bytes_ind + SHORT_OP_OV1_OFFSET] - b'0';
-            o_v2[info_ind] = input_bytes[bytes_ind + SHORT_OP_OV2_OFFSET] - b'0';
-            let o_v3 = (input_bytes[bytes_ind + SHORT_OP_OV3_OFFSET] - b'0') as usize;
+            o_v1[info_ind] = input_bytes[bytes_ind + SHORT_OP_OV1_OFFSET] & 15;
+            o_v2[info_ind] = input_bytes[bytes_ind + SHORT_OP_OV2_OFFSET] & 15;
+            let o_v3 = (input_bytes[bytes_ind + SHORT_OP_OV3_OFFSET] & 15) as usize;
             rc[info_ind] = if o_v3 < 4 {
-                input_bytes[bytes_ind + SHORT_OP_A_REGOFFSETS[o_v3]] - b'0'
+                input_bytes[bytes_ind + SHORT_OP_A_REGOFFSETS[o_v3]] & 15
             } else {
                 253
             };
         }
         ra[info_ind] = if o_v1[info_ind] < 4 {
-            input_bytes[bytes_ind + B_REGOFFSETS[o_v1[info_ind] as usize]] - b'0'
+            input_bytes[bytes_ind + B_REGOFFSETS[o_v1[info_ind] as usize]] & 15
         } else {
             255
         };
         rb[info_ind] = if o_v2[info_ind] < 4 {
-            input_bytes[bytes_ind + B_REGOFFSETS[o_v2[info_ind] as usize]] - b'0'
+            input_bytes[bytes_ind + B_REGOFFSETS[o_v2[info_ind] as usize]] & 15
         } else {
             255
         };
@@ -237,7 +223,7 @@ fn part_2(input: &str) {
             bytes_ind += SHORT_OP_CHUNK_SIZE;
         }
     }
-    bytes_ind += 3; // Start of example program
+    bytes_ind += 2; // Start of example program
     for i in (0..o_v1.len()).step_by(64) {
         let (op_v1_simd, op_v2_simd, op_ra_simd, op_rb_simd, op_rc_simd, amt) = if i + 64 > o_v1.len() {
             let mut op_v1_slice = [255; 64];
@@ -270,21 +256,21 @@ fn part_2(input: &str) {
         };
         simd_possibilities_to_array!{
             addr_possibilities, simd_addr(op_ra_simd, op_rb_simd, op_rc_simd),
-            addi_possibilities,  simd_addi(op_ra_simd, op_v2_simd, op_rc_simd),
-            mulr_possibilities,  simd_mulr(op_ra_simd, op_rb_simd, op_rc_simd),
-            muli_possibilities,  simd_muli(op_ra_simd, op_v2_simd, op_rc_simd),
-            banr_possibilities,  simd_banr(op_ra_simd, op_rb_simd, op_rc_simd),
-            bani_possibilities,  simd_bani(op_ra_simd, op_v2_simd, op_rc_simd),
-            borr_possibilities,  simd_borr(op_ra_simd, op_rb_simd, op_rc_simd),
-            bori_possibilities,  simd_bori(op_ra_simd, op_v2_simd, op_rc_simd),
-            setr_possibilities,  simd_setr(op_ra_simd, ZEROS, op_rc_simd),
-            seti_possibilities,  simd_seti(op_v1_simd, ZEROS, op_rc_simd),
-            gtir_possibilities,  simd_gtir(op_v1_simd, op_rb_simd, op_rc_simd),
-            gtri_possibilities,  simd_gtri(op_ra_simd, op_v2_simd, op_rc_simd),
-            gtrr_possibilities,  simd_gtrr(op_ra_simd, op_rb_simd, op_rc_simd),
-            eqir_possibilities,  simd_eqir(op_v1_simd, op_rb_simd, op_rc_simd),
-            eqri_possibilities,  simd_eqir(op_ra_simd, op_v2_simd, op_rc_simd),
-            eqrr_possibilities,  simd_eqrr(op_ra_simd, op_rb_simd, op_rc_simd)
+            addi_possibilities, simd_addi(op_ra_simd, op_v2_simd, op_rc_simd),
+            mulr_possibilities, simd_mulr(op_ra_simd, op_rb_simd, op_rc_simd),
+            muli_possibilities, simd_muli(op_ra_simd, op_v2_simd, op_rc_simd),
+            banr_possibilities, simd_banr(op_ra_simd, op_rb_simd, op_rc_simd),
+            bani_possibilities, simd_bani(op_ra_simd, op_v2_simd, op_rc_simd),
+            borr_possibilities, simd_borr(op_ra_simd, op_rb_simd, op_rc_simd),
+            bori_possibilities, simd_bori(op_ra_simd, op_v2_simd, op_rc_simd),
+            setr_possibilities, simd_setr(op_ra_simd, ZEROS, op_rc_simd),
+            seti_possibilities, simd_seti(op_v1_simd, ZEROS, op_rc_simd),
+            gtir_possibilities, simd_gtir(op_v1_simd, op_rb_simd, op_rc_simd),
+            gtri_possibilities, simd_gtri(op_ra_simd, op_v2_simd, op_rc_simd),
+            gtrr_possibilities, simd_gtrr(op_ra_simd, op_rb_simd, op_rc_simd),
+            eqir_possibilities, simd_eqir(op_v1_simd, op_rb_simd, op_rc_simd),
+            eqri_possibilities, simd_eqir(op_ra_simd, op_v2_simd, op_rc_simd),
+            eqrr_possibilities, simd_eqrr(op_ra_simd, op_rb_simd, op_rc_simd)
         };
         for j in 0..amt {
             possibilities[i + j][0] = addr_possibilities[j];
@@ -307,55 +293,66 @@ fn part_2(input: &str) {
     }
     let mut skip = [false; INPUTS];
     let mut identified = [0; 16];
-    let mut marked_zero = [false; 16];
-    'identification: loop {
-        for (i, pos) in possibilities.iter().enumerate() {
+    'identification: for _ in 0..2 {
+        for i in 0..possibilities.len() {
             if skip[i] {
                 continue;
-            }
-            if unsafe { u8x16::from_slice_unaligned_unchecked(pos).wrapping_sum() } == 1 {
-                let which = pos.iter().position(|&e| e == 1).unwrap();
+            } else if unsafe {
+                u8x16::from_slice_unaligned_unchecked(&possibilities[i]).wrapping_sum()
+            } == 1 {
+                let which = possibilities[i].iter().position(|&e| e == 1).unwrap();
                 if identified[which] == 1 {
                     continue;
-                }
-                match which {
-                    0 => addr_op = Some(o_v0[i]),
-                    1 => addi_op = Some(o_v0[i]),
-                    2 => mulr_op = Some(o_v0[i]),
-                    3 => muli_op = Some(o_v0[i]),
-                    4 => banr_op = Some(o_v0[i]),
-                    5 => bani_op = Some(o_v0[i]),
-                    6 => borr_op = Some(o_v0[i]),
-                    7 => bori_op = Some(o_v0[i]),
-                    8 => setr_op = Some(o_v0[i]),
-                    9 => seti_op = Some(o_v0[i]),
-                    10 => gtir_op = Some(o_v0[i]),
-                    11 => gtri_op = Some(o_v0[i]),
-                    12 => gtrr_op = Some(o_v0[i]),
-                    13 => eqir_op = Some(o_v0[i]),
-                    14 => eqri_op = Some(o_v0[i]),
-                    15 => eqrr_op = Some(o_v0[i]),
-                    _ => unsafe { std::hint::unreachable_unchecked() }
-                }
-                skip[i] = true;
-                identified[which] = 1;
-                unsafe {
-                    if u8x16::from_slice_unaligned_unchecked(&identified).wrapping_sum() == 16 {
-                        break 'identification;
+                } else {
+                    ops[o_v0[i] as usize] = Some(which);
+                    skip[i] = true;
+                    identified[which] = 1;
+                    unsafe {
+                        if u8x16::from_slice_unaligned_unchecked(&identified).wrapping_sum() == 16 {
+                            break 'identification;
+                        }
+                    }
+                    for j in (0..INPUTS).filter(|&j| j != i) {
+                        if skip[j] {
+                            continue;
+                        } else {
+                            possibilities[j][which] = 0;
+                        }
                     }
                 }
             }
         }
-        mark_zero!{
-            {
-                addr_op, 0, addi_op, 1, mulr_op, 2, muli_op, 3, banr_op, 4, bani_op, 5, borr_op, 6,
-                bori_op, 7, setr_op, 8, seti_op, 9, gtir_op, 10, gtri_op, 11, gtrr_op, 12,
-                eqir_op, 13, eqri_op, 14, eqrr_op, 15
-            }, marked_zero, possibilities
-        };
     }
-    let mut example_program_lines: [[u16; 4]; 857] = unsafe { uninitialized() };
-    for i in 0..857
+    let mut organized_functions: [fn(&mut [u16; 4], u8, u8, u8); 16] = unsafe { uninitialized() };
+    for i in 0..16 {
+        organized_functions[i] = FUNCTIONS[ops[i].unwrap() as usize];
+    }
+    let mut registers = [0; 4];
+    for _ in 0..PROGRAM_LINES {
+        let mut long_v0 = false;
+        let v0 = if input_bytes[bytes_ind + 1] != b' ' {
+            long_v0 = true;
+            10 + input_bytes[bytes_ind + 1] & 15
+        } else {
+            input_bytes[bytes_ind] & 15
+        } as usize;
+        let (v1, v2, v3) = if long_v0 {
+            (input_bytes[bytes_ind + LONG_V0_V1_OFFSET] & 15,
+            input_bytes[bytes_ind + LONG_V0_V2_OFFSET] & 15,
+            input_bytes[bytes_ind + LONG_V0_V3_OFFSET] & 15)
+        } else {
+            (input_bytes[bytes_ind + SHORT_V0_V1_OFFSET] & 15,
+            input_bytes[bytes_ind + SHORT_V0_V2_OFFSET] & 15,
+            input_bytes[bytes_ind + SHORT_V0_V3_OFFSET] & 15)
+        };
+        organized_functions[v0](&mut registers, v1, v2, v3);
+        if long_v0 {
+            bytes_ind += LONG_LINE_LENGTH;
+        } else {
+            bytes_ind += SHORT_LINE_LENGTH;
+        }
+    }
+    registers[0]
 }
 
 const TWOS: u8x64 = u8x64::splat(2);
@@ -368,64 +365,160 @@ fn simd_addr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a + b).eq(c)
 }
 
+fn addr(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] + registers[b as usize];
+    registers[c as usize] = result;
+}
+
 fn simd_addi(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a + b).eq(c)
+}
+
+fn addi(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] + b as u16;
+    registers[c as usize] = result;
 }
 
 fn simd_mulr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a * b).eq(c)
 }
 
+fn mulr(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] * registers[b as usize];
+    registers[c as usize] = result;
+}
+
 fn simd_muli(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a * b).eq(c)
+}
+
+fn muli(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] * b as u16;
+    registers[c as usize] = result;
 }
 
 fn simd_banr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a & b).eq(c)
 }
 
+fn banr(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] & registers[b as usize];
+    registers[c as usize] = result;
+}
+
 fn simd_bani(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a & b).eq(c)
+}
+fn bani(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] & b as u16;
+    registers[c as usize] = result;
 }
 
 fn simd_borr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a | b).eq(c)
 }
 
+fn borr(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] | registers[b as usize];
+    registers[c as usize] = result;
+}
+
 fn simd_bori(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     (a | b).eq(c)
+}
+
+fn bori(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    let result = registers[a as usize] | b as u16;
+    registers[c as usize] = result;
 }
 
 fn simd_setr(a: u8x64, _b: u8x64, c: u8x64) -> m8x64 {
     a.eq(c)
 }
 
+fn setr(registers: &mut [u16; 4], a: u8, _b: u8, c: u8) {
+    let tmp = registers[a as usize];
+    registers[c as usize] = tmp;
+}
+
 fn simd_seti(a: u8x64, _b: u8x64, c: u8x64) -> m8x64 {
     a.eq(c)
+}
+
+fn seti(registers: &mut [u16; 4], a: u8, _b: u8, c: u8) {
+    registers[c as usize] = a as u16;
 }
 
 fn simd_gtir(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.gt(b).select(ONES, ZEROS).eq(c)
 }
 
+fn gtir(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    if a as u16 > registers[b as usize] {
+       registers[c as usize] = 1;
+    } else {
+       registers[c as usize] = 0;
+    }
+}
+
 fn simd_gtri(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.gt(b).select(ONES, ZEROS).eq(c)
+}
+
+fn gtri(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    if registers[a as usize] > b as u16 {
+       registers[c as usize] = 1;
+    } else {
+       registers[c as usize] = 0;
+    }
 }
 
 fn simd_gtrr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.gt(b).select(ONES, ZEROS).eq(c)
 }
 
+fn gtrr(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    if registers[a as usize] > registers[b as usize] {
+       registers[c as usize] = 1;
+    } else {
+       registers[c as usize] = 0;
+    }
+}
+
 fn simd_eqir(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.eq(b).select(ONES, ZEROS).eq(c)
+}
+
+fn eqir(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    if a as u16 == registers[b as usize] {
+       registers[c as usize] = 1;
+    } else {
+       registers[c as usize] = 0;
+    }
 }
 
 fn simd_eqri(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.eq(b).select(ONES, ZEROS).eq(c)
 }
 
+fn eqri(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    if registers[a as usize] == b as u16 {
+       registers[c as usize] = 1;
+    } else {
+       registers[c as usize] = 0;
+    }
+}
+
 fn simd_eqrr(a: u8x64, b: u8x64, c: u8x64) -> m8x64 {
     a.eq(b).select(ONES, ZEROS).eq(c)
+}
+
+fn eqrr(registers: &mut [u16; 4], a: u8, b: u8, c: u8) {
+    if registers[a as usize] == registers[b as usize] {
+       registers[c as usize] = 1;
+    } else {
+       registers[c as usize] = 0;
+    }
 }
 
 extern crate test;
